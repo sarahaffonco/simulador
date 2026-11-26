@@ -23,20 +23,31 @@ import { createInitialCache } from "./simulator/cache/cache";
 import type { IOController } from "./simulator/io/types";
 import { createInitialIO, setInput } from "./simulator/io/controller";
 
-function createProgramMemory(): RAM {
+type ProgramType = "sum" | "io";
+
+function createProgramMemory(programType: ProgramType = "sum"): RAM {
   let initialMemory = createInitialMemory();
 
-  // Inicializa os dados do programa.
+  // Inicializa os dados utilizados pelo programa de soma.
   initialMemory = writeMemory(initialMemory, 10, 5);
   initialMemory = writeMemory(initialMemory, 11, 3);
   initialMemory = writeMemory(initialMemory, 12, 0);
 
-  // Carrega as instruções na memória.
- return loadProgram(initialMemory, [
-  { opcode: Opcode.IN, operand: 0 },
-  { opcode: Opcode.OUT, operand: 0 },
-  { opcode: Opcode.HLT, operand: 0 },
-]);
+  // Seleciona as instruções conforme o programa escolhido.
+  if (programType === "io") {
+    return loadProgram(initialMemory, [
+      { opcode: Opcode.IN, operand: 0 },
+      { opcode: Opcode.OUT, operand: 0 },
+      { opcode: Opcode.HLT, operand: 0 },
+    ]);
+  }
+
+  return loadProgram(initialMemory, [
+    { opcode: Opcode.LOAD, operand: 10 },
+    { opcode: Opcode.ADD, operand: 11 },
+    { opcode: Opcode.STORE, operand: 12 },
+    { opcode: Opcode.HLT, operand: 0 },
+  ]);
 }
 
 function App() {
@@ -139,7 +150,7 @@ function App() {
 
   function handleReset() {
     setRegisters(createInitialRegisters());
-    setMemory(createProgramMemory());
+    setMemory(createProgramMemory(selectedProgram));
     setStatus("ready");
     setExecutionMessage("Aguardando início da execução.");
     setCache(createInitialCache());
@@ -203,7 +214,9 @@ function App() {
     },
   ];
 
-  const [memory, setMemory] = useState<RAM>(createProgramMemory);
+  const [selectedProgram, setSelectedProgram] = useState<ProgramType>("sum");
+
+  const [memory, setMemory] = useState<RAM>(() => createProgramMemory("sum"));
   const [isRunning, setIsRunning] = useState(false);
   const [status, setStatus] = useState<CPUStatus>("ready");
   const [cache, setCache] = useState<Cache>(createInitialCache);
@@ -222,6 +235,18 @@ function App() {
   }));
   const [io, setIO] = useState<IOController>(createInitialIO);
   const [inputValue, setInputValue] = useState("");
+  function handleProgramChange(programType: ProgramType) {
+    setSelectedProgram(programType);
+
+    setRegisters(createInitialRegisters());
+    setMemory(createProgramMemory(programType));
+    setCache(createInitialCache());
+    setIO(createInitialIO());
+
+    setInputValue("");
+    setStatus("ready");
+    setExecutionMessage("Aguardando início da execução.");
+  }
   return (
     <div className="app">
       <header className="header">
@@ -366,6 +391,21 @@ function App() {
                 <p>Acompanhe o ciclo de instrução</p>
               </div>
               <span className="panel-tag">CPU</span>
+            </div>
+            <div className="program-selector">
+              <label htmlFor="program-select">Programa para executar</label>
+
+              <select
+                id="program-select"
+                value={selectedProgram}
+                onChange={(event) =>
+                  handleProgramChange(event.target.value as ProgramType)
+                }
+                disabled={isRunning}
+              >
+                <option value="sum">Programa 1 — Soma</option>
+                <option value="io">Programa 2 — Entrada e saída</option>
+              </select>
             </div>
             <div className="execution-empty">
               <div className="empty-icon">▶</div>
